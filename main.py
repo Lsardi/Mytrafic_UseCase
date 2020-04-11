@@ -1,9 +1,9 @@
-from pyspark import SparkContext
 from pyspark.shell import spark
 import pyspark.sql.functions as f
 from pyspark.sql.types import *
 from math import sin, cos, acos, pi
-
+from pyspark.sql import Window
+from pyspark.sql.types import DoubleType
 
 #############################################################################
 def deg2rad(dd):
@@ -37,10 +37,19 @@ train = (spark.read.option("inferSchema", "true")
          .csv("train.csv"))
 
 distanceGPS_UDF = f.udf(distanceGPS, DoubleType())
+
 train = train.withColumn('time_in_min', f.col('trip_duration') / 60) \
     .withColumn('KM', distanceGPS_UDF(
     f.col('pickup_latitude'), f.col('pickup_longitude'), f.col('dropoff_latitude'), f.col('dropoff_longitude'))) \
-    .withColumn('KM_AVG', f.col('KM') * 60 / f.col('time_in_min'))
+    .withColumn('KMH_AVG', f.col('KM') * 60 / f.col('time_in_min')) \
+    .withColumn('DayOfW',
+                f.from_unixtime(f.unix_timestamp("pickup_datetime", "MM/dd/yyyy hh:mm:ss"), "EEEEE").alias("dow"))
 
-df = train.groupBy('id', window('pickup_datetime', '4 hours').alias('model_window')) \
-    .agg()
+train.show()
+
+
+#df = train.groupBy('DayOfW').count().withColumnRenamed("count","q2")
+
+#train1 = df.join(train, f.col(df.DayOfW) == f.col(train.DayOfW))
+
+train.describe()
